@@ -175,41 +175,44 @@ export default function HomePage() {
       )}
 
       <main className="main">
-        <div className="container mx-auto px-5">
+        <div className="container mx-auto px-2 sm:px-4 md:px-5">
           <WelcomeSection />
           
-          {/* Enhanced Navigation */}
-          <div className="bg-primary-green/5 rounded-2xl p-4 mb-8">
-            <div className="flex gap-3 justify-center flex-wrap">
+          {/* Enhanced Navigation - Mobile Optimized */}
+          <div className="bg-primary-green/5 rounded-xl sm:rounded-2xl p-2 sm:p-3 md:p-4 mb-4 sm:mb-6 md:mb-8">
+            <div className="flex gap-1 sm:gap-2 md:gap-3 justify-center flex-wrap">
               <button 
-                className={`px-5 py-2 rounded-lg font-bold transition-all min-h-[44px] border-2 border-primary-green ${
+                className={`px-2 sm:px-3 md:px-5 py-2 sm:py-2.5 rounded-md sm:rounded-lg font-bold transition-all min-h-[40px] sm:min-h-[44px] border-2 border-primary-green text-xs sm:text-sm md:text-base ${
                   currentSection === 'menu' 
                     ? 'bg-primary-green text-white' 
                     : 'bg-white text-primary-green hover:bg-primary-green hover:text-white'
                 }`}
                 onClick={() => setCurrentSection('menu')}
               >
-                🍽️ Menú de Hoy
+                <span className="block sm:hidden">🍽️</span>
+                <span className="hidden sm:block">🍽️ Menú de Hoy</span>
               </button>
               <button 
-                className={`px-5 py-2 rounded-lg font-bold transition-all min-h-[44px] border-2 border-primary-green ${
+                className={`px-2 sm:px-3 md:px-5 py-2 sm:py-2.5 rounded-md sm:rounded-lg font-bold transition-all min-h-[40px] sm:min-h-[44px] border-2 border-primary-green text-xs sm:text-sm md:text-base ${
                   currentSection === 'history' 
                     ? 'bg-primary-green text-white' 
                     : 'bg-white text-primary-green hover:bg-primary-green hover:text-white'
                 }`}
                 onClick={() => setCurrentSection('history')}
               >
-                📋 Mis Pedidos
+                <span className="block sm:hidden">📋</span>
+                <span className="hidden sm:block">📋 Mis Pedidos</span>
               </button>
               <button 
-                className={`px-5 py-2 rounded-lg font-bold transition-all min-h-[44px] border-2 border-primary-green ${
+                className={`px-2 sm:px-3 md:px-5 py-2 sm:py-2.5 rounded-md sm:rounded-lg font-bold transition-all min-h-[40px] sm:min-h-[44px] border-2 border-primary-green text-xs sm:text-sm md:text-base ${
                   currentSection === 'quick-order' 
                     ? 'bg-primary-green text-white' 
                     : 'bg-white text-primary-green hover:bg-primary-green hover:text-white'
                 }`}
                 onClick={() => setCurrentSection('quick-order')}
               >
-                ⚡ Pedido Rápido
+                <span className="block sm:hidden">⚡</span>
+                <span className="hidden sm:block">⚡ Pedido Rápido</span>
               </button>
             </div>
           </div>

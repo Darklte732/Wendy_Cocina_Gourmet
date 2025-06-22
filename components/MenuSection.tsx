@@ -105,25 +105,25 @@ export function MenuSection({ onOpenOrder }: MenuSectionProps) {
 
   if (loading) {
     return (
-      <section className="bg-white rounded-2xl p-8 shadow-lg mb-8">
-        <div className="text-center mb-8 pb-6 border-b-4 border-primary-green">
-          <h2 className="text-elderly-3xl font-bold text-primary-green mb-3">
+      <section className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-5 md:p-8 shadow-lg mb-4 sm:mb-6 md:mb-8">
+        <div className="text-center mb-4 sm:mb-6 md:mb-8 pb-3 sm:pb-4 md:pb-6 border-b-2 sm:border-b-4 border-primary-green">
+          <h2 className="text-lg sm:text-xl md:text-elderly-3xl font-bold text-primary-green mb-2 sm:mb-3">
             🍽️ Menú de Hoy
           </h2>
-          <p className="text-elderly-lg text-gray-600">
+          <p className="text-sm sm:text-base md:text-elderly-lg text-gray-600">
             {formatDate(new Date())}
           </p>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="bg-white border-2 border-gray-200 rounded-2xl p-6 animate-pulse">
-              <div className="w-full h-60 bg-gray-200 rounded-xl mb-5"></div>
-              <div className="h-8 bg-gray-200 rounded mb-3 w-4/5"></div>
-              <div className="h-5 bg-gray-200 rounded mb-2"></div>
-              <div className="h-5 bg-gray-200 rounded mb-2 w-3/5"></div>
-              <div className="h-9 bg-gray-200 rounded mx-auto w-2/5 my-5"></div>
-              <div className="h-14 bg-gray-200 rounded"></div>
+            <div key={i} className="bg-white border-2 border-gray-200 rounded-xl sm:rounded-2xl p-3 sm:p-4 md:p-6 animate-pulse">
+              <div className="w-full h-40 sm:h-48 md:h-60 bg-gray-200 rounded-lg sm:rounded-xl mb-3 sm:mb-4 md:mb-5"></div>
+              <div className="h-4 sm:h-6 md:h-8 bg-gray-200 rounded mb-2 sm:mb-3 w-4/5"></div>
+              <div className="h-3 sm:h-4 md:h-5 bg-gray-200 rounded mb-2"></div>
+              <div className="h-3 sm:h-4 md:h-5 bg-gray-200 rounded mb-2 w-3/5"></div>
+              <div className="h-6 sm:h-8 md:h-9 bg-gray-200 rounded mx-auto w-2/5 my-3 sm:my-4 md:my-5"></div>
+              <div className="h-10 sm:h-12 md:h-14 bg-gray-200 rounded"></div>
             </div>
           ))}
         </div>
@@ -194,32 +194,32 @@ export function MenuSection({ onOpenOrder }: MenuSectionProps) {
   }
 
   return (
-    <section className="bg-white rounded-2xl p-8 shadow-lg mb-8">
-      <div className="text-center mb-8 pb-6 border-b-4 border-primary-green">
-        <h2 className="text-elderly-3xl font-bold text-primary-green mb-3">
+    <section className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-5 md:p-8 shadow-lg mb-4 sm:mb-6 md:mb-8">
+      <div className="text-center mb-4 sm:mb-6 md:mb-8 pb-3 sm:pb-4 md:pb-6 border-b-2 sm:border-b-4 border-primary-green">
+        <h2 className="text-lg sm:text-xl md:text-elderly-3xl font-bold text-primary-green mb-2 sm:mb-3">
           🍽️ Menú de Hoy
         </h2>
-        <p className="text-elderly-lg text-gray-600">
+        <p className="text-sm sm:text-base md:text-elderly-lg text-gray-600">
           {formatDate(new Date())}
         </p>
       </div>
 
-      {/* Favorites Section */}
+      {/* Favorites Section - Mobile Optimized */}
       {favorites.length > 0 && (
-        <div className="bg-primary-green/5 border-2 border-primary-green rounded-2xl p-6 mb-8">
-          <h3 className="text-elderly-lg font-bold text-primary-green mb-4 text-center">
+        <div className="bg-primary-green/5 border-2 border-primary-green rounded-xl sm:rounded-2xl p-3 sm:p-4 md:p-6 mb-4 sm:mb-6 md:mb-8">
+          <h3 className="text-sm sm:text-base md:text-elderly-lg font-bold text-primary-green mb-3 sm:mb-4 text-center">
             ⭐ Tus Favoritos
           </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3">
             {favorites.map((item) => (
               <div
                 key={`fav-${item.id}`}
-                className="bg-white border-2 border-gray-200 rounded-lg p-4 text-center cursor-pointer hover:border-primary-green hover:bg-primary-green/5 transition-all"
+                className="bg-white border-2 border-gray-200 rounded-lg p-2 sm:p-3 md:p-4 text-center cursor-pointer hover:border-primary-green hover:bg-primary-green/5 transition-all"
                 onClick={() => onOpenOrder(item)}
               >
-                <div className="text-elderly-2xl mb-2">{item.emoji}</div>
-                <div className="text-elderly-base font-bold mb-2">{item.name}</div>
-                <div className="text-elderly-sm text-primary-green font-bold">
+                <div className="text-lg sm:text-xl md:text-elderly-2xl mb-1 sm:mb-2">{item.emoji}</div>
+                <div className="text-xs sm:text-sm md:text-elderly-base font-bold mb-1 sm:mb-2 leading-tight">{item.name}</div>
+                <div className="text-xs sm:text-sm md:text-elderly-sm text-primary-green font-bold">
                   RD$ {item.price}
                 </div>
               </div>
@@ -228,8 +228,8 @@ export function MenuSection({ onOpenOrder }: MenuSectionProps) {
         </div>
       )}
 
-      {/* Daily Specials Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {/* Daily Specials Grid - Mobile Optimized */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
         {todaysSpecials.map((special) => {
           const availabilityInfo = getAvailabilityInfo(special.availability, special.availablePortions)
           const isAvailable = special.availability === 'available' || special.availability === 'limited'
@@ -237,49 +237,50 @@ export function MenuSection({ onOpenOrder }: MenuSectionProps) {
           return (
             <div
               key={special.id}
-              className="bg-white border-4 border-gray-200 rounded-2xl p-6 shadow-lg hover:shadow-xl hover:border-primary-green transition-all relative overflow-hidden"
+              className="bg-white border-2 sm:border-4 border-gray-200 rounded-xl sm:rounded-2xl p-3 sm:p-4 md:p-6 shadow-lg hover:shadow-xl hover:border-primary-green transition-all relative overflow-hidden"
             >
-              {/* Badge */}
-              <div className="absolute top-4 right-4 bg-primary-green text-white px-3 py-1 rounded-full text-elderly-sm font-bold">
-                Especial del Día
+              {/* Badge - Mobile Optimized */}
+              <div className="absolute top-2 sm:top-3 md:top-4 right-2 sm:right-3 md:right-4 bg-primary-green text-white px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm md:text-elderly-sm font-bold">
+                <span className="block sm:hidden">⭐</span>
+                <span className="hidden sm:block">Especial del Día</span>
               </div>
 
-              {/* Image */}
-              <div className="w-full h-60 bg-gradient-to-br from-primary-green to-green-400 rounded-xl mb-5 flex items-center justify-center text-white font-bold text-elderly-3xl border-2 border-gray-200">
+              {/* Image - Mobile Optimized */}
+              <div className="w-full h-40 sm:h-48 md:h-60 bg-gradient-to-br from-primary-green to-green-400 rounded-lg sm:rounded-xl mb-3 sm:mb-4 md:mb-5 flex items-center justify-center text-white font-bold text-xl sm:text-2xl md:text-elderly-3xl border-2 border-gray-200">
                 {special.image ? (
                   <img 
                     src={special.image} 
                     alt={special.name}
-                    className="w-full h-full object-cover rounded-xl"
+                    className="w-full h-full object-cover rounded-lg sm:rounded-xl"
                   />
                 ) : (
                   special.emoji
                 )}
               </div>
 
-              {/* Content */}
-              <h3 className="text-elderly-xl font-bold mb-3 text-gray-800">
+              {/* Content - Mobile Optimized */}
+              <h3 className="text-sm sm:text-base md:text-elderly-xl font-bold mb-2 sm:mb-3 text-gray-800 leading-tight">
                 {special.name}
               </h3>
               
-              <p className="text-elderly-base text-gray-600 mb-5 leading-relaxed">
+              <p className="text-xs sm:text-sm md:text-elderly-base text-gray-600 mb-3 sm:mb-4 md:mb-5 leading-relaxed line-clamp-2 sm:line-clamp-3">
                 {special.description}
               </p>
 
-              {/* Availability */}
-              <div className={`flex items-center justify-center gap-2 mb-4 px-4 py-2 rounded-full font-bold text-elderly-sm border-2 ${availabilityInfo.className}`}>
+              {/* Availability - Mobile Optimized */}
+              <div className={`flex items-center justify-center gap-1 sm:gap-2 mb-3 sm:mb-4 px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 rounded-full font-bold text-xs sm:text-sm md:text-elderly-sm border-2 ${availabilityInfo.className}`}>
                 <span>{availabilityInfo.icon}</span>
-                <span>{availabilityInfo.text}</span>
+                <span className="hidden sm:block">{availabilityInfo.text}</span>
               </div>
 
-              {/* Price */}
-              <div className="text-elderly-2xl font-bold text-primary-green text-center mb-5 py-3 bg-primary-green/10 rounded-lg">
+              {/* Price - Mobile Optimized */}
+              <div className="text-lg sm:text-xl md:text-elderly-2xl font-bold text-primary-green text-center mb-3 sm:mb-4 md:mb-5 py-2 sm:py-3 bg-primary-green/10 rounded-lg">
                 RD$ {special.price}
               </div>
 
-              {/* Order Button */}
+              {/* Order Button - Mobile Optimized */}
               <button
-                className={`w-full py-4 px-6 rounded-xl font-bold text-elderly-lg min-h-[56px] transition-all flex items-center justify-center gap-3 ${
+                className={`w-full py-3 sm:py-4 px-3 sm:px-4 md:px-6 rounded-lg sm:rounded-xl font-bold text-sm sm:text-base md:text-elderly-lg min-h-[44px] sm:min-h-[52px] md:min-h-[56px] transition-all flex items-center justify-center gap-2 sm:gap-3 ${
                   isAvailable
                     ? 'bg-primary-green text-white hover:bg-green-700 hover:-translate-y-1 shadow-lg hover:shadow-primary-green/30'
                     : 'bg-gray-400 text-white cursor-not-allowed'

@@ -27,25 +27,29 @@ export function Header({ onToggleFontControls }: HeaderProps) {
   }, [])
 
   return (
-    <header className="bg-primary-green text-white p-6 sticky top-0 z-[100] shadow-lg">
+    <header className="bg-primary-green text-white p-3 sm:p-4 md:p-6 sticky top-0 z-[100] shadow-lg">
       <div className="container mx-auto">
-        <div className="flex justify-between items-center flex-wrap gap-5">
-          <div className="flex items-center gap-4 text-elderly-2xl font-bold">
-            🍽️ <span>Wendy Cocina Gourmet</span>
+        <div className="flex justify-between items-center gap-2 sm:gap-3 md:gap-5">
+          {/* Logo - Mobile Optimized */}
+          <div className="flex items-center gap-2 sm:gap-3 text-base sm:text-lg md:text-elderly-2xl font-bold">
+            <span className="text-lg sm:text-xl md:text-2xl">🍽️</span>
+            <span className="text-sm sm:text-base md:text-elderly-2xl truncate">Wendy Cocina Gourmet</span>
           </div>
           
-          <div className="flex items-center gap-5">
+          {/* Controls - Mobile Optimized */}
+          <div className="flex items-center gap-2 sm:gap-3">
             <button 
-              className="bg-white/20 border-2 border-white text-white p-2 rounded-lg text-elderly-lg hover:bg-white/30 transition-colors min-h-[40px] min-w-[40px]"
+              className="bg-white/20 border-2 border-white text-white p-1.5 sm:p-2 rounded-lg text-sm sm:text-base hover:bg-white/30 transition-colors min-h-[36px] min-w-[36px] sm:min-h-[40px] sm:min-w-[40px]"
               onClick={onToggleFontControls}
               title="Cambiar tamaño de letra"
             >
               🔤
             </button>
             
-            <div className="text-right text-elderly-lg">
-              <div className="text-elderly-base opacity-90">Hoy es</div>
-              <div className="text-elderly-xl font-bold">{currentDate}</div>
+            {/* Date - Hidden on small mobile, visible on larger screens */}
+            <div className="hidden sm:block text-right text-xs sm:text-sm md:text-elderly-lg">
+              <div className="text-xs sm:text-sm opacity-90">Hoy es</div>
+              <div className="text-sm sm:text-base md:text-elderly-xl font-bold leading-tight">{currentDate}</div>
             </div>
           </div>
         </div>
