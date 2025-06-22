@@ -1,0 +1,3091 @@
+// Sample order history data (localStorage-based)
+        const sampleOrderHistory = [
+            {
+                id: 'ORD001',
+                date: '2024-12-08',
+                items: [
+                    { name: 'Pollo Guisado con Vegetales', quantity: 2, price: 350 },
+                    { name: 'Arroz con Habichuelas', quantity: 1, price: 220 }
+                ],
+                total: 920,
+                status: 'delivered',
+                serviceType: 'pickup'
+            },
+            {
+                id: 'ORD002',
+                date: '2024-12-05',
+                items: [
+                    { name: 'Carne Guisada con Yuca', quantity: 1, price: 380 }
+                ],
+                total: 380,
+                status: 'delivered',
+                serviceType: 'delivery'
+            },
+            {
+                id: 'ORD003',
+                date: '2024-12-01',
+                items: [
+                    { name: 'Pescado Frito con Tostones', quantity: 1, price: 420 },
+                    { name: 'Arroz con Habichuelas', quantity: 1, price: 220 }
+                ],
+                total: 640,
+                status: 'cancelled',
+                serviceType: 'pickup'
+            }
+        ];
+
+        // Quick order templates
+        const quickOrderTemplates = [
+            {
+                id: 'template1',
+                name: 'Almuerzo Familiar',
+                items: ['Pollo Guisado', 'Arroz con Habichuelas', 'Ensalada'],
+                estimatedTotal: 850,
+                emoji: '👨‍👩‍👧‍👦'
+            },
+            {
+                id: 'template2',
+                name: 'Comida Individual',
+                items: ['Carne Guisada', 'Arroz Blanco'],
+                estimatedTotal: 430,
+                emoji: '🍽️'
+            },
+            {
+                id: 'template3',
+                name: 'Especial del Mar',
+                items: ['Pescado Frito', 'Tostones', 'Ensalada'],
+                estimatedTotal: 570,
+                emoji: '🐟'
+            }
+        ];
+
+        // Address suggestions for auto-complete
+        const commonAddresses = [
+            'Calle Principal, El Seibo',
+            'Avenida Libertad, El Seibo',
+            'Calle Duarte, El Seibo',
+            'Barrio Centro, El Seibo',
+            'Zona Industrial, El Seibo',
+            'Cerca del Hospital, El Seibo',
+            'Cerca de la Escuela, El Seibo',
+            'Cerca del Parque Central, El Seibo'
+        ];
+
+        // Current section state
+        let currentSection = 'menu';
+
+        // Enhanced customer data with order history
+        let customerData = {
+            isReturningCustomer: false,
+            savedProfile: null,
+            shouldSaveProfile: false,
+            orderHistory: [],
+            favoriteItems: []
+        };
+
+        // Initialize order history from localStorage
+        function initializeOrderHistory() {
+            const saved = localStorage.getItem('comidaCaseraOrderHistory');
+            if (saved) {
+                try {
+                    customerData.orderHistory = JSON.parse(saved);
+                } catch (error) {
+                    console.error('Error parsing order history:', error);
+                    customerData.orderHistory = sampleOrderHistory;
+                }
+            } else {
+                // Load sample data for demo
+                customerData.orderHistory = sampleOrderHistory;
+                saveOrderHistory();
+            }
+            
+            updateFavoriteItems();
+        }
+
+        // Save order history to localStorage
+        function saveOrderHistory() {
+            localStorage.setItem('comidaCaseraOrderHistory', JSON.stringify(customerData.orderHistory));
+        }
+
+        // Update favorite items based on order history
+        function updateFavoriteItems() {
+            const itemCounts = {};
+            
+            customerData.orderHistory.forEach(order => {
+                order.items.forEach(item => {
+                    itemCounts[item.name] = (itemCounts[item.name] || 0) + item.quantity;
+                });
+            });
+            
+            customerData.favoriteItems = Object.entries(itemCounts)
+                .sort(([,a], [,b]) => b - a)
+                .slice(0, 3)
+                .map(([name, count]) => {
+                    const menuItem = todaysSpecials.find(item => item.name === name);
+                    return {
+                        name,
+                        count,
+                        emoji: menuItem?.emoji || '🍽️',
+                        price: menuItem?.price || 0
+                    };
+                });
+        }
+
+        // Section Navigation
+        function showSection(section) {
+            // Update navigation buttons
+            document.querySelectorAll('.nav-secondary-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // Hide all sections
+            document.getElementById('todays-menu-section').style.display = 'none';
+            document.getElementById('order-history-section').style.display = 'none';
+            document.getElementById('quick-order-section').style.display = 'none';
+            
+            // Show selected section
+            switch(section) {
+                case 'menu':
+                    document.getElementById('todays-menu-section').style.display = 'block';
+                    break;
+                case 'history':
+                    document.getElementById('order-history-section').style.display = 'block';
+                    renderOrderHistory();
+                    break;
+                case 'quick-order':
+                    document.getElementById('quick-order-section').style.display = 'block';
+                    renderQuickOrderTemplates();
+                    break;
+            }
+            
+            currentSection = section;
+        }
+
+        // Render Order History
+        function renderOrderHistory() {
+            const container = document.getElementById('order-history-list');
+            
+            if (customerData.orderHistory.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: #6b7280; font-size: var(--elderly-lg);">
+                        📋 No tienes pedidos anteriores aún.<br>
+                        ¡Haz tu primer pedido hoy!
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = '';
+            
+            customerData.orderHistory.forEach(order => {
+                const historyItem = createHistoryItem(order);
+                container.appendChild(historyItem);
+            });
+        }
+
+        // Create Order History Item
+        function createHistoryItem(order) {
+            const item = document.createElement('div');
+            item.className = 'history-item';
+            
+            const statusText = {
+                delivered: '✅ Entregado',
+                cancelled: '❌ Cancelado',
+                pending: '🕐 Pendiente'
+            };
+            
+            const itemsList = order.items.map(item => 
+                `${item.name} (x${item.quantity})`
+            ).join(', ');
+            
+            item.innerHTML = `
+                <div class="history-item-header">
+                    <div class="history-date">${formatDate(new Date(order.date))}</div>
+                    <div class="history-status ${order.status}">${statusText[order.status]}</div>
+                </div>
+                <div class="history-items">
+                    <div class="history-item-name">${itemsList}</div>
+                    <div class="history-item-details">
+                        ${order.serviceType === 'pickup' ? '🏠 Recogida' : '🚚 Delivery'} • Pedido #${order.id}
+                    </div>
+                </div>
+                <div class="history-total">Total: RD$ ${order.total}</div>
+                <div class="history-actions">
+                    <button class="reorder-btn" onclick="reorderItems('${order.id}')">
+                        🔄 Volver a Pedir
+                    </button>
+                    <button class="view-details-btn" onclick="viewOrderDetails('${order.id}')">
+                        👁️ Ver Detalles
+                    </button>
+                </div>
+            `;
+            
+            return item;
+                // Service Worker Registration
+        async function registerServiceWorker() {
+            if ('serviceWorker' in navigator) {
+                try {
+                    // Create service worker content
+                    const swContent = `
+                        const CACHE_NAME = 'comida-casera-v1';
+                        const urlsToCache = [
+                            '/',
+                            '/offline.html'
+                        ];
+
+                        self.addEventListener('install', (event) => {
+                            event.waitUntil(
+                                caches.open(CACHE_NAME)
+                                    .then((cache) => cache.addAll(urlsToCache))
+                            );
+                        });
+
+                        self.addEventListener('fetch', (event) => {
+                            event.respondWith(
+                                caches.match(event.request)
+                                    .then((response) => {
+                                        if (response) {
+                                            return response;
+                                        }
+                                        return fetch(event.request);
+                                    })
+                            );
+                        });
+                    `;
+
+                    const swBlob = new Blob([swContent], { type: 'application/javascript' });
+                    const swURL = URL.createObjectURL(swBlob);
+                    
+                    const registration = await navigator.serviceWorker.register(swURL);
+                    console.log('Service Worker registered successfully:', registration);
+                } catch (error) {
+                    console.log('Service Worker registration failed:', error);
+                }
+            }
+        }
+
+        // PWA Install Functions
+        function setupPWAInstall() {
+            window.addEventListener('beforeinstallprompt', (e) => {
+                e.preventDefault();
+                deferredPrompt = e;
+                
+                // Show install prompt after delay for returning users
+                setTimeout(() => {
+                    if (!localStorage.getItem('pwaInstallDismissed')) {
+                        showInstallPrompt();
+                    }
+                }, 5000);
+            });
+        }
+
+        function showInstallPrompt() {
+            document.getElementById('pwa-install-prompt').classList.add('show');
+        }
+
+        function installPWA() {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then((choiceResult) => {
+                    if (choiceResult.outcome === 'accepted') {
+                        console.log('User accepted PWA install');
+                    }
+                    deferredPrompt = null;
+                    dismissInstallPrompt();
+                });
+            }
+        }
+
+        function dismissInstallPrompt() {
+            document.getElementById('pwa-install-prompt').classList.remove('show');
+            localStorage.setItem('pwaInstallDismissed', 'true');
+        }
+
+        // Font Size Management
+        function initializeFontSize() {
+            applyFontSize(currentFontSize);
+            updateFontSizeButtons();
+        }
+
+        function toggleFontControls() {
+            const controls = document.getElementById('font-controls');
+            controls.classList.toggle('show');
+        }
+
+        function updateFontSizeButtons() {
+            document.querySelectorAll('.font-size-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.dataset.size === currentFontSize) {
+                    btn.classList.add('active');
+                }
+            });
+        }
+
+        function applyFontSize(size) {
+            document.body.classList.remove('font-small', 'font-large');
+            
+            if (size === 'small') {
+                document.body.classList.add('font-small');
+            } else if (size === 'large') {
+                document.body.classList.add('font-large');
+            }
+            
+            currentFontSize = size;
+            localStorage.setItem('comidaCaseraFontSize', size);
+        }
+
+        // Network Status Management
+        function setupNetworkStatus() {
+            window.addEventListener('online', handleOnline);
+            window.addEventListener('offline', handleOffline);
+            
+            if (!navigator.onLine) {
+                handleOffline();
+            }
+        }
+
+        function handleOnline() {
+            isOnline = true;
+            document.getElementById('offline-indicator').classList.remove('show');
+            showMessage('✅ Conexión restaurada', 'success');
+        }
+
+        function handleOffline() {
+            isOnline = false;
+            document.getElementById('offline-indicator').classList.add('show');
+            showMessage('📴 Sin conexión - Modo offline activado', 'error');
+        }
+
+        // Image Loading with Error Handling
+        function createImageWithFallback(src, alt, emoji) {
+            const imageContainer = document.createElement('div');
+            imageContainer.className = 'special-image loading';
+            
+            if (src) {
+                const img = document.createElement('img');
+                img.alt = alt;
+                img.loading = 'lazy';
+                
+                img.onload = () => {
+                    imageContainer.className = 'special-image';
+                    imageContainer.innerHTML = '';
+                    imageContainer.appendChild(img);
+                    
+                    // Add click to enlarge
+                    imageContainer.addEventListener('click', () => {
+                        openPhotoGallery(src, alt);
+                    });
+                    
+                    // Add overlay for enlargement hint
+                    const overlay = document.createElement('div');
+                    overlay.className = 'image-overlay';
+                    overlay.textContent = '🔍 Ver más grande';
+                    imageContainer.appendChild(overlay);
+                };
+                
+                img.onerror = () => {
+                    imageContainer.className = 'special-image error';
+                    imageContainer.innerHTML = emoji;
+                };
+                
+                // Set src after setting up event listeners
+                setTimeout(() => {
+                    img.src = src;
+                }, Math.random() * 1000); // Stagger loading
+                
+            } else {
+                // No image provided, show emoji immediately
+                setTimeout(() => {
+                    imageContainer.className = 'special-image';
+                    imageContainer.innerHTML = emoji;
+                }, 500);
+            }
+            
+            return imageContainer;
+        }
+
+        // Photo Gallery Functions
+        function openPhotoGallery(src, title) {
+            const modal = document.getElementById('photo-gallery-modal');
+            const image = document.getElementById('gallery-image');
+            const titleElement = document.getElementById('gallery-title');
+            
+            image.src = src;
+            image.alt = title;
+            titleElement.textContent = title;
+            
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closePhotoGallery() {
+            const modal = document.getElementById('photo-gallery-modal');
+            modal.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+
+        // Enhanced Menu Rendering with Loading States
+        function renderDailySpecials() {
+            const container = document.getElementById('daily-specials');
+            
+            // Show loading skeletons initially
+            setTimeout(() => {
+                // Clear loading skeletons
+                container.innerHTML = '';
+                
+                // Render actual menu items
+                todaysSpecials.forEach((special, index) => {
+                    setTimeout(() => {
+                        const specialCard = createSpecialCard(special);
+                        container.appendChild(specialCard);
+                    }, index * 200); // Stagger appearance
+                });
+            }, 1500); // Simulate loading time
+        }
+
+        // Enhanced Special Card Creation
+        function createSpecialCard(special) {
+            const card = document.createElement('div');
+            card.className = 'special-card';
+            
+            const availabilityInfo = getAvailabilityInfo(special.availability, special.availablePortions);
+            const isAvailable = special.availability === 'available' || special.availability === 'limited';
+            
+            // Create image with fallback
+            const imageContainer = createImageWithFallback(special.image, special.name, special.emoji);
+            
+            // Create card structure
+            const badge = document.createElement('div');
+            badge.className = 'special-badge';
+            badge.textContent = 'Especial del Día';
+            
+            const title = document.createElement('h3');
+            title.className = 'special-title';
+            title.textContent = special.name;
+            
+            const description = document.createElement('p');
+            description.className = 'special-description';
+            description.textContent = special.description;
+            
+            const availability = document.createElement('div');
+            availability.className = `availability-status ${special.availability}`;
+            availability.innerHTML = `${availabilityInfo.icon} ${availabilityInfo.text}`;
+            
+            const price = document.createElement('div');
+            price.className = 'special-price';
+            price.textContent = `RD$ ${special.price}`;
+            
+            const button = document.createElement('button');
+            button.className = 'order-button';
+            button.disabled = !isAvailable;
+            button.innerHTML = `🛒 ${isAvailable ? 'Hacer Pedido' : 'Agotado'}`;
+            button.addEventListener('click', () => {
+                openOrderModal(special.name, special.price, special.id, isAvailable);
+            });
+            
+            // Assemble card
+            card.appendChild(badge);
+            card.appendChild(imageContainer);
+            card.appendChild(title);
+            card.appendChild(description);
+            card.appendChild(availability);
+            card.appendChild(price);
+            card.appendChild(button);
+            
+            return card;
+        }
+
+        // Initialize page with all new features
+        function initializePage() {
+            const today = new Date();
+            const formattedDate = formatDate(today);
+            
+            document.getElementById('current-date').textContent = formattedDate;
+            document.getElementById('menu-date').textContent = formattedDate;
+            
+            // Initialize all systems
+            generateManifest();
+            registerServiceWorker();
+            setupPWAInstall();
+            initializeFontSize();
+            setupNetworkStatus();
+            
+            renderDailySpecials();
+            setupOrderForm();
+            checkReturningCustomer();
+            setupEventListeners();
+        }
+
+        // Enhanced Event Listeners
+        function setupEventListeners() {
+            // Font size controls
+            document.querySelectorAll('.font-size-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    applyFontSize(btn.dataset.size);
+                    updateFontSizeButtons();
+                });
+            });
+
+            // Close font controls when clicking outside
+            document.addEventListener('click', (e) => {
+                const fontControls = document.getElementById('font-controls');
+                const fontToggle = document.querySelector('.font-toggle-btn');
+                
+                if (!fontControls.contains(e.target) && !fontToggle.contains(e.target)) {
+                    fontControls.classList.remove('show');
+                }
+            });
+
+            // Photo gallery close on click outside
+            document.getElementById('photo-gallery-modal').addEventListener('click', (e) => {
+                if (e.target === document.getElementById('photo-gallery-modal')) {
+                    closePhotoGallery();
+                }
+            });
+
+            // Enhanced keyboard navigation
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    closeOrderModal();
+                    hideProfileSection();
+                    closePhotoGallery();
+                    document.getElementById('font-controls').classList.remove('show');
+                }
+            });
+
+            // Touch gestures for mobile
+            let touchStartY = 0;
+            document.addEventListener('touchstart', (e) => {
+                touchStartY = e.touches[0].clientY;
+            });
+
+            document.addEventListener('touchend', (e) => {
+                const touchEndY = e.changedTouches[0].clientY;
+                const diff = touchStartY - touchEndY;
+
+                // Pull to refresh gesture
+                if (diff < -150 && window.scrollY === 0) {
+                    refreshMenu();
+                }
+            });
+        }
+
+        // Pull to refresh functionality
+        function refreshMenu() {
+            showMessage('🔄 Actualizando menú...', 'success');
+            
+            // Show loading skeletons again
+            const container = document.getElementById('daily-specials');
+            container.innerHTML = `
+                <div class="skeleton-card skeleton">
+                    <div class="skeleton-image skeleton"></div>
+                    <div class="skeleton-title skeleton"></div>
+                    <div class="skeleton-description skeleton"></div>
+                    <div class="skeleton-description skeleton"></div>
+                    <div class="skeleton-price skeleton"></div>
+                    <div class="skeleton-button skeleton"></div>
+                </div>
+            `;
+            
+            // Re-render after delay
+            setTimeout(() => {
+                renderDailySpecials();
+                showMessage('✅ Menú actualizado', 'success');
+            }, 2000);
+        }
+
+        // PWA and Service Worker Management
+        let deferredPrompt;
+        let isOnline = navigator.onLine;
+
+        // Font size management
+        let currentFontSize = localStorage.getItem('comidaCaseraFontSize') || 'normal';
+
+        // Customer data management
+        let customerData = {
+            isReturningCustomer: false,
+            savedProfile: null,
+            shouldSaveProfile: false
+        };
+
+        // Order management variables
+        let currentOrder = {
+            itemId: null,
+            itemName: '',
+            itemPrice: 0,
+            quantity: 1
+        };
+
+        // Sample customer database
+        const customerDatabase = {
+            '8091234567': {
+                name: 'María González',
+                phone: '8091234567',
+                deliveryAddress: 'Calle Principal #123, El Seibo',
+                preferredService: 'pickup',
+                favoriteItems: ['Pollo Guisado con Vegetales', 'Arroz con Habichuelas'],
+                totalOrders: 5,
+                lastOrder: '2024-12-10'
+            },
+            '8099876543': {
+                name: 'José Martínez',
+                phone: '8099876543',
+                deliveryAddress: '',
+                preferredService: 'pickup',
+                favoriteItems: ['Carne Guisada con Yuca'],
+                totalOrders: 3,
+                lastOrder: '2024-12-08'
+            }
+        };
+
+        // PWA Manifest Generation
+        function generateManifest() {
+            const manifest = {
+                name: "Comida Casera El Seibo",
+                short_name: "Comida Casera",
+                description: "Deliciosas comidas caseras del día en El Seibo",
+                theme_color: "#059669",
+                background_color: "#f9fafb",
+                display: "standalone",
+                orientation: "portrait",
+                scope: "/",
+                start_url: "/",
+                icons: [
+                    {
+                        src: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxOTIiIGhlaWdodD0iMTkyIj48Y2lyY2xlIGN4PSI5NiIgY3k9Ijk2IiByPSI4OCIgZmlsbD0iIzA1OTY2OSIvPjx0ZXh0IHg9Ijk2IiB5PSIxMjAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IndoaXRlIiBmb250LXNpemU9IjY0Ij7wn42945C9PC90ZXh0Pjwvc3ZnPg==",
+                        sizes: "192x192",
+                        type: "image/png"
+                    },
+                    {
+                        src: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MTIiIGhlaWdodD0iNTEyIj48Y2lyY2xlIGN4PSIyNTYiIGN5PSIyNTYiIHI9IjIzMiIgZmlsbD0iIzA1OTY2OSIvPjx0ZXh0IHg9IjI1NiIgeT0iMzIwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSJ3aGl0ZSIgZm9udC1zaXplPSIxODAiPvCfjbmfkL08L3RleHQ+PC9zdmc+",
+                        sizes: "512x512",
+                        type: "image/png"
+                    }
+                ]
+            };
+
+            const manifestBlob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
+            const manifestURL = URL.createObjectURL(manifestBlob);
+            document.getElementById('pwa-manifest').href = manifestURL;
+        }
+
+        // Service Worker Registration
+        async function registerServiceWorker() {
+            if ('serviceWorker' in navigator) {
+                try {
+                    // Create service worker content
+                    const swContent = `
+                        const CACHE_NAME = 'comida-casera-v1';
+                        const urlsToCache = [
+                            '/',
+                            '/offline.html'
+                        ];
+
+                        self.addEventListener('install', (event) => {
+                            event.waitUntil(
+                                caches.open(CACHE_NAME)
+                                    .then((cache) => cache.addAll(urlsToCache))
+                <!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comida Casera El Seibo - Comida del Día</title>
+    <meta name="description" content="Deliciosas comidas caseras del día en El Seibo. Ordena fácil por WhatsApp.">
+    
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#059669">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Comida Casera">
+    <link rel="manifest" href="data:application/json;base64,eyJuYW1lIjoiQ29taWRhIENhc2VyYSBFbCBTZWlibyIsInNob3J0X25hbWUiOiJDb21pZGEgQ2FzZXJhIiwiZGVzY3JpcHRpb24iOiJEZWxpY2lvc2FzIGNvbWlkYXMgY2FzZXJhcyBkZWwgZMOtYSBlbiBFbCBTZWlibyIsInRoZW1lX2NvbG9yIjoiIzA1OTY2OSIsImJhY2tncm91bmRfY29sb3IiOiIjZjlmYWZiIiwiZGlzcGxheSI6InN0YW5kYWxvbmUiLCJvcmllbnRhdGlvbiI6InBvcnRyYWl0Iiwic2NvcGUiOiIvIiwic3RhcnRfdXJsIjoiLyIsImljb25zIjpbeyJzcmMiOiJkYXRhOmltYWdlL3N2Zyt4bWw7YmFzZTY0LFBITjJaeUI0Yld4dWN6MGlhSFIwY0RvdkwzZDNkeTUzTXk1dmNtY3ZNakF3TUM5emRtY2lJSGRwWkhSb1BTSXlOREFpSUdobGFXZG9kRDBpTWpRd0lqNDhZMmx5WTJ4bElHTjRQU0l4TWpBaUlHTjVQU0l4TWpBaUlISTlJalE0SWlCbWFXeHNQU0lqTURVNU5qWTVJaTArUEhSbGVIUWdlRDBpTVRJd0lpQjVQU0l4TXpBaUlIUmxlSFF0WVc1amFHOXlQU0p0YVdSa2JHVWlJR1pwYkd3OUluZG9hWFJsSWo1RFBDOTBaWGgwUGp4MGVYUkdjR0YwYUNCcFpEMGlZMjl0YVdSaElqNDhkSE53WVc0Z1ptbHNiRDBpSTJabU1EQXdNQ0krUTI5dGFXUmhJRU5oYzJWeVlUd3ZkSE53WVc0K1BDOXBZV1IyWlhKMGFYTmxiV1Z1ZEQ0OEwzUmxlSFJRWVhSb1BqODhMM04yWnowaUxDSnphWHBsY3lJNklqRTVNbmd4T1RJaUxDSjBlWEJsSWpvaWFXMWhaMlV2Y0c1bkluMWRmUT09Iiwic2l6ZXMiOiIxOTJ4MTkyIiwidHlwZSI6ImltYWdlL3BuZyJ9XX0=">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            /* Elderly-friendly font sizes */
+            --elderly-sm: 20px;
+            --elderly-base: 26px;
+            --elderly-lg: 30px;
+            --elderly-xl: 36px;
+            --elderly-2xl: 42px;
+            --elderly-3xl: 52px;
+            
+            /* Colors for elderly users */
+            --primary-green: #059669;
+            --primary-green-hover: #047857;
+            --primary-green-light: #10b981;
+            --elderly-text: #1f2937;
+            --elderly-bg: #f9fafb;
+            --elderly-card: #ffffff;
+            --elderly-border: #d1d5db;
+            --elderly-error: #dc2626;
+            --elderly-success: #10b981;
+            --elderly-warning: #f59e0b;
+            
+            /* Spacing */
+            --touch-target: 56px;
+            --comfortable-spacing: 28px;
+            --large-spacing: 36px;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-size: var(--elderly-base);
+            line-height: 1.6;
+            color: var(--elderly-text);
+            background-color: var(--elderly-bg);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        /* Header */
+        .header {
+            background: var(--primary-green);
+            color: white;
+            padding: var(--comfortable-spacing) 0;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .logo {
+            font-size: var(--elderly-2xl);
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .date-display {
+            text-align: right;
+            font-size: var(--elderly-lg);
+        }
+
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .font-toggle-btn {
+            background: rgba(255,255,255,0.2);
+            border: 2px solid white;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: var(--elderly-lg);
+            cursor: pointer;
+            min-height: 40px;
+            min-width: 40px;
+            transition: background-color 0.3s;
+        }
+
+        .font-toggle-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        .today-label {
+            font-size: var(--elderly-base);
+            opacity: 0.9;
+        }
+
+        .current-date {
+            font-size: var(--elderly-xl);
+            font-weight: bold;
+        }
+
+        /* Main Content */
+        .main {
+            padding: var(--large-spacing) 0;
+            min-height: calc(100vh - 300px);
+        }
+
+        .welcome-section {
+            text-align: center;
+            margin-bottom: var(--large-spacing);
+            padding: var(--large-spacing);
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+        }
+
+        .welcome-title {
+            font-size: var(--elderly-3xl);
+            font-weight: bold;
+            margin-bottom: 20px;
+            color: var(--primary-green);
+        }
+
+        .welcome-subtitle {
+            font-size: var(--elderly-lg);
+            color: #6b7280;
+            margin-bottom: var(--comfortable-spacing);
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .whatsapp-button {
+            background: #25d366;
+            color: white;
+            border: none;
+            padding: 20px 40px;
+            border-radius: 12px;
+            font-size: var(--elderly-lg);
+            font-weight: bold;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 16px;
+            min-height: var(--touch-target);
+            text-decoration: none;
+            transition: all 0.3s;
+            box-shadow: 0 4px 12px rgba(37, 211, 102, 0.3);
+        }
+
+        .whatsapp-button:hover {
+            background: #128c7e;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(37, 211, 102, 0.4);
+        }
+
+        /* Today's Menu Section */
+        .todays-menu {
+            background: white;
+            border-radius: 16px;
+            padding: var(--large-spacing);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+            margin-bottom: var(--large-spacing);
+        }
+
+        .menu-header {
+            text-align: center;
+            margin-bottom: var(--large-spacing);
+            padding-bottom: var(--comfortable-spacing);
+            border-bottom: 3px solid var(--primary-green);
+        }
+
+        .menu-title {
+            font-size: var(--elderly-3xl);
+            font-weight: bold;
+            color: var(--primary-green);
+            margin-bottom: 12px;
+        }
+
+        .menu-date {
+            font-size: var(--elderly-lg);
+            color: #6b7280;
+        }
+
+        /* Daily Specials Grid */
+        .daily-specials {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: var(--comfortable-spacing);
+            margin-bottom: var(--large-spacing);
+        }
+
+        .special-card {
+            background: var(--elderly-card);
+            border: 3px solid var(--elderly-border);
+            border-radius: 16px;
+            padding: var(--comfortable-spacing);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .special-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            border-color: var(--primary-green);
+        }
+
+        .special-badge {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background: var(--primary-green);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: var(--elderly-sm);
+            font-weight: bold;
+        }
+
+        /* Image Loading and Error States */
+        .special-image {
+            width: 100%;
+            height: 240px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            border: 2px solid var(--elderly-border);
+            background: linear-gradient(135deg, #059669, #10b981);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: var(--elderly-3xl);
+            color: white;
+            font-weight: bold;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .special-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 10px;
+            transition: opacity 0.3s ease;
+        }
+
+        .special-image.loading {
+            background: linear-gradient(135deg, #e5e7eb, #f3f4f6);
+            color: #6b7280;
+        }
+
+        .special-image.loading::after {
+            content: '📷 Cargando foto...';
+            font-size: var(--elderly-base);
+        }
+
+        .special-image.error {
+            background: linear-gradient(135deg, #fef3f2, #fee2e2);
+            color: #dc2626;
+            border-color: #fca5a5;
+        }
+
+        .special-image.error::after {
+            content: '📷 Foto no disponible';
+            font-size: var(--elderly-base);
+        }
+
+        .image-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: var(--elderly-base);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            cursor: pointer;
+        }
+
+        .special-image:hover .image-overlay {
+            opacity: 1;
+        }
+
+        /* Photo Gallery Modal */
+        .photo-gallery-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.9);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .photo-gallery-modal.active {
+            display: flex;
+        }
+
+        .gallery-content {
+            position: relative;
+            max-width: 90vw;
+            max-height: 90vh;
+        }
+
+        .gallery-image {
+            width: 100%;
+            height: auto;
+            max-height: 80vh;
+            object-fit: contain;
+            border-radius: 8px;
+        }
+
+        .gallery-close {
+            position: absolute;
+            top: -40px;
+            right: 0;
+            background: white;
+            border: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            font-size: 24px;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .gallery-title {
+            position: absolute;
+            bottom: -60px;
+            left: 0;
+            right: 0;
+            color: white;
+            font-size: var(--elderly-lg);
+            font-weight: bold;
+            text-align: center;
+        }
+
+        /* Loading Skeletons */
+        .skeleton {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s infinite;
+        }
+
+        @keyframes loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        .skeleton-card {
+            background: white;
+            border: 2px solid var(--elderly-border);
+            border-radius: 16px;
+            padding: var(--comfortable-spacing);
+            margin-bottom: var(--comfortable-spacing);
+        }
+
+        .skeleton-image {
+            width: 100%;
+            height: 240px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+
+        .skeleton-title {
+            height: 32px;
+            border-radius: 4px;
+            margin-bottom: 12px;
+            width: 80%;
+        }
+
+        .skeleton-description {
+            height: 20px;
+            border-radius: 4px;
+            margin-bottom: 8px;
+        }
+
+        .skeleton-description:last-of-type {
+            width: 60%;
+        }
+
+        .skeleton-price {
+            height: 36px;
+            border-radius: 4px;
+            width: 40%;
+            margin: 20px auto;
+        }
+
+        .skeleton-button {
+            height: 56px;
+            border-radius: 12px;
+            width: 100%;
+        }
+
+        /* PWA Install Prompt */
+        .pwa-install-prompt {
+            display: none;
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            background: var(--primary-green);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+            z-index: 1500;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        .pwa-install-prompt.show {
+            display: block;
+        }
+
+        .install-prompt-content {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .install-prompt-text {
+            flex: 1;
+        }
+
+        .install-prompt-title {
+            font-size: var(--elderly-lg);
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+
+        .install-prompt-description {
+            font-size: var(--elderly-base);
+            opacity: 0.9;
+        }
+
+        .install-prompt-buttons {
+            display: flex;
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .install-btn {
+            background: white;
+            color: var(--primary-green);
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: var(--elderly-base);
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .install-btn.secondary {
+            background: transparent;
+            color: white;
+            border: 2px solid white;
+        }
+
+        /* Font Size Controls */
+        .font-controls {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            background: white;
+            border: 2px solid var(--elderly-border);
+            border-radius: 12px;
+            padding: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            z-index: 1000;
+            display: none;
+        }
+
+        .font-controls.show {
+            display: block;
+        }
+
+        .font-controls-title {
+            font-size: var(--elderly-base);
+            font-weight: bold;
+            margin-bottom: 12px;
+            text-align: center;
+            color: var(--elderly-text);
+        }
+
+        .font-size-buttons {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+        }
+
+        .font-size-btn {
+            background: var(--elderly-bg);
+            border: 2px solid var(--elderly-border);
+            color: var(--elderly-text);
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .font-size-btn.active {
+            background: var(--primary-green);
+            color: white;
+            border-color: var(--primary-green);
+        }
+
+        .font-size-btn:hover {
+            border-color: var(--primary-green);
+        }
+
+        /* Font Size Classes */
+        .font-small {
+            --elderly-sm: 18px;
+            --elderly-base: 22px;
+            --elderly-lg: 26px;
+            --elderly-xl: 30px;
+            --elderly-2xl: 36px;
+            --elderly-3xl: 44px;
+        }
+
+        .font-large {
+            --elderly-sm: 24px;
+            --elderly-base: 30px;
+            --elderly-lg: 36px;
+            --elderly-xl: 42px;
+            --elderly-2xl: 48px;
+            --elderly-3xl: 60px;
+        }
+
+        /* Order History & Customer Features */
+        .order-history-section {
+            background: white;
+            border-radius: 16px;
+            padding: var(--large-spacing);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+            margin-bottom: var(--large-spacing);
+            display: none;
+        }
+
+        .order-history-section.show {
+            display: block;
+        }
+
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--comfortable-spacing);
+            padding-bottom: 16px;
+            border-bottom: 3px solid var(--primary-green);
+        }
+
+        .history-title {
+            font-size: var(--elderly-2xl);
+            font-weight: bold;
+            color: var(--primary-green);
+        }
+
+        .history-toggle {
+            background: var(--elderly-bg);
+            border: 2px solid var(--elderly-border);
+            color: var(--elderly-text);
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: var(--elderly-base);
+            font-weight: bold;
+            cursor: pointer;
+            min-height: var(--touch-target);
+        }
+
+        .history-toggle:hover {
+            border-color: var(--primary-green);
+        }
+
+        .order-history-list {
+            display: grid;
+            gap: 16px;
+        }
+
+        .history-item {
+            border: 2px solid var(--elderly-border);
+            border-radius: 12px;
+            padding: 20px;
+            background: var(--elderly-bg);
+            transition: all 0.3s;
+        }
+
+        .history-item:hover {
+            border-color: var(--primary-green);
+            background: rgba(5, 150, 105, 0.05);
+        }
+
+        .history-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .history-date {
+            font-size: var(--elderly-lg);
+            font-weight: bold;
+            color: var(--elderly-text);
+        }
+
+        .history-status {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: var(--elderly-sm);
+            font-weight: bold;
+        }
+
+        .history-status.delivered {
+            background: rgba(16, 185, 129, 0.1);
+            color: #065f46;
+            border: 2px solid var(--elderly-success);
+        }
+
+        .history-status.cancelled {
+            background: rgba(220, 38, 38, 0.1);
+            color: #991b1b;
+            border: 2px solid var(--elderly-error);
+        }
+
+        .history-items {
+            margin-bottom: 16px;
+        }
+
+        .history-item-name {
+            font-size: var(--elderly-base);
+            margin-bottom: 4px;
+        }
+
+        .history-item-details {
+            font-size: var(--elderly-sm);
+            color: #6b7280;
+            margin-bottom: 8px;
+        }
+
+        .history-total {
+            font-size: var(--elderly-lg);
+            font-weight: bold;
+            color: var(--primary-green);
+            margin-bottom: 16px;
+        }
+
+        .history-actions {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .reorder-btn, .view-details-btn {
+            background: var(--primary-green);
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-size: var(--elderly-sm);
+            font-weight: bold;
+            cursor: pointer;
+            min-height: 40px;
+            transition: all 0.3s;
+        }
+
+        .view-details-btn {
+            background: var(--elderly-bg);
+            color: var(--elderly-text);
+            border: 2px solid var(--elderly-border);
+        }
+
+        .reorder-btn:hover {
+            background: var(--primary-green-hover);
+        }
+
+        .view-details-btn:hover {
+            border-color: var(--primary-green);
+        }
+
+        /* Favorites Section */
+        .favorites-section {
+            background: rgba(5, 150, 105, 0.05);
+            border: 2px solid var(--primary-green);
+            border-radius: 16px;
+            padding: var(--comfortable-spacing);
+            margin-bottom: var(--comfortable-spacing);
+        }
+
+        .favorites-title {
+            font-size: var(--elderly-lg);
+            font-weight: bold;
+            color: var(--primary-green);
+            margin-bottom: 16px;
+            text-align: center;
+        }
+
+        .favorites-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+        }
+
+        .favorite-item {
+            background: white;
+            border: 2px solid var(--elderly-border);
+            border-radius: 8px;
+            padding: 16px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .favorite-item:hover {
+            border-color: var(--primary-green);
+            background: rgba(5, 150, 105, 0.05);
+        }
+
+        .favorite-emoji {
+            font-size: var(--elderly-2xl);
+            margin-bottom: 8px;
+        }
+
+        .favorite-name {
+            font-size: var(--elderly-base);
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+
+        .favorite-price {
+            font-size: var(--elderly-sm);
+            color: var(--primary-green);
+            font-weight: bold;
+        }
+
+        /* Enhanced Form Controls */
+        .form-input-group {
+            position: relative;
+            margin-bottom: var(--comfortable-spacing);
+        }
+
+        .form-input.has-icon {
+            padding-left: 50px;
+        }
+
+        .input-icon {
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: var(--elderly-lg);
+            color: #6b7280;
+        }
+
+        .form-input:focus + .input-icon {
+            color: var(--primary-green);
+        }
+
+        .phone-formatter {
+            font-family: monospace;
+        }
+
+        .input-validation {
+            margin-top: 8px;
+            font-size: var(--elderly-sm);
+            font-weight: bold;
+        }
+
+        .input-validation.valid {
+            color: var(--elderly-success);
+        }
+
+        .input-validation.invalid {
+            color: var(--elderly-error);
+        }
+
+        /* Auto-complete suggestions */
+        .autocomplete-container {
+            position: relative;
+        }
+
+        .autocomplete-suggestions {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 2px solid var(--elderly-border);
+            border-top: none;
+            border-radius: 0 0 8px 8px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 1000;
+            display: none;
+        }
+
+        .autocomplete-suggestions.show {
+            display: block;
+        }
+
+        .autocomplete-item {
+            padding: 12px 16px;
+            cursor: pointer;
+            font-size: var(--elderly-base);
+            border-bottom: 1px solid var(--elderly-border);
+        }
+
+        .autocomplete-item:hover,
+        .autocomplete-item.selected {
+            background: var(--primary-green);
+            color: white;
+        }
+
+        .autocomplete-item:last-child {
+            border-bottom: none;
+        }
+
+        /* Quick Order Templates */
+        .quick-order-section {
+            background: white;
+            border-radius: 16px;
+            padding: var(--large-spacing);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+            margin-bottom: var(--large-spacing);
+        }
+
+        .quick-order-title {
+            font-size: var(--elderly-2xl);
+            font-weight: bold;
+            color: var(--primary-green);
+            margin-bottom: var(--comfortable-spacing);
+            text-align: center;
+        }
+
+        .quick-order-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 16px;
+        }
+
+        .quick-order-template {
+            border: 2px solid var(--elderly-border);
+            border-radius: 12px;
+            padding: 20px;
+            background: var(--elderly-bg);
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .quick-order-template:hover {
+            border-color: var(--primary-green);
+            background: rgba(5, 150, 105, 0.05);
+        }
+
+        .template-name {
+            font-size: var(--elderly-lg);
+            font-weight: bold;
+            margin-bottom: 12px;
+            color: var(--elderly-text);
+        }
+
+        .template-items {
+            font-size: var(--elderly-base);
+            color: #6b7280;
+            margin-bottom: 12px;
+        }
+
+        .template-total {
+            font-size: var(--elderly-lg);
+            font-weight: bold;
+            color: var(--primary-green);
+        }
+
+        /* Navigation Enhancement */
+        .nav-enhancement {
+            background: rgba(5, 150, 105, 0.05);
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: var(--comfortable-spacing);
+        }
+
+        .nav-secondary {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .nav-secondary-btn {
+            background: white;
+            border: 2px solid var(--primary-green);
+            color: var(--primary-green);
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: var(--elderly-base);
+            font-weight: bold;
+            cursor: pointer;
+            min-height: 44px;
+            transition: all 0.3s;
+        }
+
+        .nav-secondary-btn:hover,
+        .nav-secondary-btn.active {
+            background: var(--primary-green);
+            color: white;
+        }
+        .offline-indicator {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: var(--elderly-error);
+            color: white;
+            padding: 12px;
+            text-align: center;
+            font-size: var(--elderly-base);
+            font-weight: bold;
+            z-index: 2000;
+        }
+
+        .offline-indicator.show {
+            display: block;
+        }
+
+        .special-title {
+            font-size: var(--elderly-xl);
+            font-weight: bold;
+            margin-bottom: 12px;
+            color: var(--elderly-text);
+        }
+
+        .special-description {
+            font-size: var(--elderly-base);
+            color: #6b7280;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+
+        .special-price {
+            font-size: var(--elderly-2xl);
+            font-weight: bold;
+            color: var(--primary-green);
+            margin-bottom: 20px;
+            text-align: center;
+            padding: 12px;
+            background: rgba(5, 150, 105, 0.1);
+            border-radius: 8px;
+        }
+
+        .order-button {
+            background: var(--primary-green);
+            color: white;
+            border: none;
+            padding: 16px 32px;
+            border-radius: 12px;
+            font-size: var(--elderly-lg);
+            font-weight: bold;
+            cursor: pointer;
+            width: 100%;
+            min-height: var(--touch-target);
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+        }
+
+        .order-button:hover {
+            background: var(--primary-green-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(5, 150, 105, 0.3);
+        }
+
+        .order-button:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        /* Order Form Modal */
+        .order-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .order-modal.active {
+            display: flex;
+        }
+
+        .order-modal-content {
+            background: white;
+            border-radius: 16px;
+            padding: var(--large-spacing);
+            width: 100%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+
+        .order-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--comfortable-spacing);
+            padding-bottom: 16px;
+            border-bottom: 3px solid var(--primary-green);
+        }
+
+        .order-modal-title {
+            font-size: var(--elderly-xl);
+            font-weight: bold;
+            color: var(--primary-green);
+        }
+
+        .close-modal-button {
+            background: none;
+            border: none;
+            font-size: var(--elderly-2xl);
+            cursor: pointer;
+            color: #6b7280;
+            padding: 8px;
+            min-height: var(--touch-target);
+            min-width: var(--touch-target);
+        }
+
+        .close-modal-button:hover {
+            color: var(--elderly-error);
+        }
+
+        .form-group {
+            margin-bottom: var(--comfortable-spacing);
+        }
+
+        .form-label {
+            display: block;
+            font-size: var(--elderly-lg);
+            font-weight: bold;
+            color: var(--elderly-text);
+            margin-bottom: 12px;
+        }
+
+        .form-input, .form-textarea {
+            width: 100%;
+            padding: 16px;
+            font-size: var(--elderly-base);
+            border: 3px solid var(--elderly-border);
+            border-radius: 8px;
+            background: white;
+            color: var(--elderly-text);
+            min-height: var(--touch-target);
+        }
+
+        .form-input:focus, .form-textarea:focus {
+            outline: none;
+            border-color: var(--primary-green);
+            box-shadow: 0 0 0 2px rgba(5, 150, 105, 0.2);
+        }
+
+        .form-textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .quantity-selector {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            justify-content: center;
+        }
+
+        .quantity-btn {
+            background: var(--primary-green);
+            color: white;
+            border: none;
+            width: var(--touch-target);
+            height: var(--touch-target);
+            border-radius: 8px;
+            font-size: var(--elderly-xl);
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .quantity-btn:hover {
+            background: var(--primary-green-hover);
+        }
+
+        .quantity-display {
+            font-size: var(--elderly-xl);
+            font-weight: bold;
+            min-width: 60px;
+            text-align: center;
+            padding: 12px;
+            border: 3px solid var(--elderly-border);
+            border-radius: 8px;
+            background: var(--elderly-bg);
+        }
+
+        .order-summary {
+            background: var(--elderly-bg);
+            padding: var(--comfortable-spacing);
+            border-radius: 12px;
+            margin: var(--comfortable-spacing) 0;
+            border: 2px solid var(--elderly-border);
+        }
+
+        .summary-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            font-size: var(--elderly-base);
+        }
+
+        .summary-total {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: var(--elderly-xl);
+            font-weight: bold;
+            color: var(--primary-green);
+            padding-top: 16px;
+            border-top: 2px solid var(--elderly-border);
+        }
+
+        .submit-order-btn {
+            background: var(--primary-green);
+            color: white;
+            border: none;
+            padding: 20px 32px;
+            border-radius: 12px;
+            font-size: var(--elderly-lg);
+            font-weight: bold;
+            cursor: pointer;
+            width: 100%;
+            min-height: var(--touch-target);
+            transition: all 0.3s;
+        }
+
+        .submit-order-btn:hover {
+            background: var(--primary-green-hover);
+            transform: translateY(-2px);
+        }
+
+        .submit-order-btn:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Order Status */
+        .order-status {
+            text-align: center;
+            padding: var(--comfortable-spacing);
+            margin: var(--comfortable-spacing) 0;
+            border-radius: 12px;
+            font-size: var(--elderly-lg);
+            font-weight: bold;
+        }
+
+        .order-status.pending {
+            background: rgba(245, 158, 11, 0.1);
+            color: #92400e;
+            border: 2px solid var(--elderly-warning);
+        }
+
+        .order-status.confirmed {
+            background: rgba(16, 185, 129, 0.1);
+            color: #065f46;
+            border: 2px solid var(--elderly-success);
+        }
+
+        .order-status.denied {
+            background: rgba(220, 38, 38, 0.1);
+            color: #991b1b;
+            border: 2px solid var(--elderly-error);
+        }
+
+        /* Availability Status */
+        .availability-status {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 16px;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: var(--elderly-sm);
+        }
+
+        .availability-status.available {
+            background: rgba(16, 185, 129, 0.1);
+            color: #065f46;
+            border: 2px solid var(--elderly-success);
+        }
+
+        .availability-status.limited {
+            background: rgba(245, 158, 11, 0.1);
+            color: #92400e;
+            border: 2px solid var(--elderly-warning);
+        }
+
+        .availability-status.sold-out {
+            background: rgba(220, 38, 38, 0.1);
+            color: #991b1b;
+            border: 2px solid var(--elderly-error);
+        }
+
+        /* Info Section */
+        .info-section {
+            background: white;
+            border-radius: 16px;
+            padding: var(--large-spacing);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+            margin-bottom: var(--large-spacing);
+        }
+
+        .info-title {
+            font-size: var(--elderly-2xl);
+            font-weight: bold;
+            color: var(--primary-green);
+            margin-bottom: var(--comfortable-spacing);
+            text-align: center;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: var(--comfortable-spacing);
+        }
+
+        .info-card {
+            text-align: center;
+            padding: var(--comfortable-spacing);
+            border: 2px solid var(--elderly-border);
+            border-radius: 12px;
+            background: var(--elderly-bg);
+        }
+
+        .info-icon {
+            font-size: var(--elderly-3xl);
+            margin-bottom: 16px;
+        }
+
+        .info-card-title {
+            font-size: var(--elderly-lg);
+            font-weight: bold;
+            margin-bottom: 12px;
+            color: var(--elderly-text);
+        }
+
+        .info-card-text {
+            font-size: var(--elderly-base);
+            color: #6b7280;
+        }
+
+        /* Footer */
+        .footer {
+            background: var(--elderly-text);
+            color: white;
+            padding: var(--large-spacing) 0;
+            margin-top: var(--large-spacing);
+        }
+
+        .footer-content {
+            text-align: center;
+        }
+
+        .footer-title {
+            font-size: var(--elderly-xl);
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+
+        .contact-info {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            align-items: center;
+            margin-bottom: var(--comfortable-spacing);
+        }
+
+        .contact-item {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            font-size: var(--elderly-base);
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .container {
+                padding: 0 16px;
+            }
+            
+            .header-content {
+                flex-direction: column;
+                text-align: center;
+                gap: 16px;
+            }
+            
+            .daily-specials {
+                grid-template-columns: 1fr;
+            }
+            
+            .info-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .special-image {
+                height: 200px;
+            }
+
+            .logo {
+                font-size: var(--elderly-xl);
+            }
+
+            .welcome-title {
+                font-size: var(--elderly-2xl);
+            }
+
+            .menu-title {
+                font-size: var(--elderly-2xl);
+            }
+        }
+
+        /* Loading States */
+        .loading {
+            text-align: center;
+            padding: var(--large-spacing);
+            font-size: var(--elderly-lg);
+            color: #6b7280;
+        }
+
+        .loading::after {
+            content: '...';
+            animation: dots 2s infinite;
+        }
+
+        @keyframes dots {
+            0%, 20% { opacity: 0; }
+            50% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+
+        /* Success/Error Messages */
+        .message {
+            padding: 16px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            font-size: var(--elderly-base);
+            font-weight: bold;
+            text-align: center;
+        }
+
+        .message.success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 2px solid var(--elderly-success);
+        }
+
+        .message.error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 2px solid var(--elderly-error);
+        }
+
+        /* Customer Profile Section */
+        .profile-section {
+            background: white;
+            border-radius: 16px;
+            padding: var(--large-spacing);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+            margin-bottom: var(--large-spacing);
+            border: 2px solid var(--primary-green);
+        }
+
+        .profile-prompt {
+            text-align: center;
+            padding: var(--comfortable-spacing);
+            background: rgba(5, 150, 105, 0.05);
+            border-radius: 12px;
+            margin-bottom: var(--comfortable-spacing);
+        }
+
+        .profile-prompt-title {
+            font-size: var(--elderly-lg);
+            font-weight: bold;
+            color: var(--primary-green);
+            margin-bottom: 12px;
+        }
+
+        .profile-prompt-text {
+            font-size: var(--elderly-base);
+            color: #6b7280;
+            margin-bottom: 20px;
+        }
+
+        .profile-buttons {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .profile-btn {
+            background: var(--primary-green);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: var(--elderly-base);
+            font-weight: bold;
+            cursor: pointer;
+            min-height: var(--touch-target);
+            min-width: 140px;
+            transition: all 0.3s;
+        }
+
+        .profile-btn.secondary {
+            background: var(--elderly-bg);
+            color: var(--elderly-text);
+            border: 2px solid var(--elderly-border);
+        }
+
+        .profile-btn:hover {
+            background: var(--primary-green-hover);
+            transform: translateY(-1px);
+        }
+
+        .profile-btn.secondary:hover {
+            background: var(--elderly-border);
+        }
+
+        /* Customer lookup */
+        .customer-lookup {
+            margin-bottom: var(--comfortable-spacing);
+            padding: 20px;
+            background: var(--elderly-bg);
+            border-radius: 12px;
+            border: 2px solid var(--elderly-border);
+        }
+
+        .lookup-title {
+            font-size: var(--elderly-lg);
+            font-weight: bold;
+            margin-bottom: 16px;
+            color: var(--elderly-text);
+        }
+
+        .lookup-form {
+            display: flex;
+            gap: 12px;
+            align-items: end;
+            flex-wrap: wrap;
+        }
+
+        .lookup-input {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .lookup-btn {
+            background: var(--primary-green);
+            color: white;
+            border: none;
+            padding: 16px 24px;
+            border-radius: 8px;
+            font-size: var(--elderly-base);
+            font-weight: bold;
+            cursor: pointer;
+            min-height: var(--touch-target);
+            white-space: nowrap;
+        }
+
+        .customer-found {
+            margin-top: 16px;
+            padding: 16px;
+            background: rgba(16, 185, 129, 0.1);
+            border: 2px solid var(--elderly-success);
+            border-radius: 8px;
+        }
+
+        .customer-found-text {
+            font-size: var(--elderly-base);
+            color: #065f46;
+            font-weight: bold;
+        }
+
+        /* Save profile prompt */
+        .save-profile-prompt {
+            margin-top: var(--comfortable-spacing);
+            padding: 20px;
+            background: rgba(5, 150, 105, 0.05);
+            border: 2px solid var(--primary-green);
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .save-prompt-title {
+            font-size: var(--elderly-lg);
+            font-weight: bold;
+            color: var(--primary-green);
+            margin-bottom: 12px;
+        }
+
+        .save-prompt-text {
+            font-size: var(--elderly-base);
+            color: #6b7280;
+            margin-bottom: 20px;
+        }
+
+        .save-prompt-buttons {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        /* Favorite orders */
+        .favorite-orders {
+            margin-top: var(--comfortable-spacing);
+        }
+
+        .favorite-title {
+            font-size: var(--elderly-lg);
+            font-weight: bold;
+            color: var(--primary-green);
+            margin-bottom: 16px;
+        }
+
+        .favorite-items {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 12px;
+        }
+
+        .favorite-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            background: var(--elderly-bg);
+            border: 2px solid var(--elderly-border);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .favorite-item:hover {
+            border-color: var(--primary-green);
+            background: rgba(5, 150, 105, 0.05);
+        }
+
+        .favorite-item-text {
+            font-size: var(--elderly-base);
+            font-weight: bold;
+        }
+
+        .reorder-btn {
+            background: var(--primary-green);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: var(--elderly-sm);
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        /* High contrast mode support */
+        @media (prefers-contrast: high) {
+            :root {
+                --elderly-border: #000000;
+                --elderly-text: #000000;
+            }
+            
+            .special-card {
+                border-width: 4px;
+            }
+        }
+
+        /* Reduced motion support */
+        @media (prefers-reduced-motion: reduce) {
+            * {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <div class="logo">
+                    🍽️ <span>Comida Casera El Seibo</span>
+                </div>
+                <div class="header-controls">
+                    <button class="font-toggle-btn" onclick="toggleFontControls()" title="Cambiar tamaño de letra">
+                        🔤
+                    </button>
+                    <div class="date-display">
+                        <div class="today-label">Hoy es</div>
+                        <div class="current-date" id="current-date"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Font Size Controls -->
+    <div class="font-controls" id="font-controls">
+        <div class="font-controls-title">Tamaño de Letra</div>
+        <div class="font-size-buttons">
+            <button class="font-size-btn" data-size="small">A</button>
+            <button class="font-size-btn active" data-size="normal">A</button>
+            <button class="font-size-btn" data-size="large">A</button>
+        </div>
+    </div>
+
+    <!-- Offline Indicator -->
+    <div class="offline-indicator" id="offline-indicator">
+        📴 Sin conexión - Algunas funciones pueden no estar disponibles
+    </div>
+
+    <!-- PWA Install Prompt -->
+    <div class="pwa-install-prompt" id="pwa-install-prompt">
+        <div class="install-prompt-content">
+            <div class="install-prompt-text">
+                <div class="install-prompt-title">📱 Instalar App</div>
+                <div class="install-prompt-description">
+                    Instala nuestra app para acceso más rápido y sin internet
+                </div>
+            </div>
+        </div>
+        <div class="install-prompt-buttons">
+            <button class="install-btn" onclick="installPWA()">Instalar</button>
+            <button class="install-btn secondary" onclick="dismissInstallPrompt()">Ahora No</button>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="main">
+        <div class="container">
+            <!-- Welcome Section -->
+            <section class="welcome-section">
+                <h1 class="welcome-title">¡Comida Casera Fresca Todos los Días!</h1>
+                <p class="welcome-subtitle">
+                    Preparamos comidas caseras frescas cada día con ingredientes de la mejor calidad. 
+                    Cada plato es hecho con amor y cariño, como en casa de la abuela.
+                    <br><br>
+                    <strong>🛒 Haz tu pedido por la app - Te confirmamos por WhatsApp</strong>
+                    <br>
+                    <strong>🏠 Servicio principalmente de RECOGIDA - Delivery disponible</strong>
+                </p>
+                <a href="https://wa.me/18094567890?text=¡Hola! Me gustaría saber qué tienen disponible hoy para recoger" 
+                   class="whatsapp-button" target="_blank" rel="noopener">
+                    📱 Preguntar por WhatsApp
+                </a>
+            </section>
+
+            <!-- Enhanced Navigation -->
+            <div class="nav-enhancement">
+                <div class="nav-secondary">
+                    <button class="nav-secondary-btn active" onclick="showSection('menu')">
+                        🍽️ Menú de Hoy
+                    </button>
+                    <button class="nav-secondary-btn" onclick="showSection('history')">
+                        📋 Mis Pedidos
+                    </button>
+                    <button class="nav-secondary-btn" onclick="showSection('quick-order')">
+                        ⚡ Pedido Rápido
+                    </button>
+                </div>
+            </div>
+
+            <!-- Customer Profile Section (Optional) -->
+            <section class="profile-section" id="profile-section" style="display: none;">
+                <div class="profile-prompt">
+                    <h2 class="profile-prompt-title">¿Eres Cliente Frecuente?</h2>
+                    <p class="profile-prompt-text">
+                        Si ya has ordenado antes, podemos hacer tu pedido más rápido.
+                        Si es tu primera vez, ¡no te preocupes! Puedes ordenar sin problemas.
+                    </p>
+                    <div class="profile-buttons">
+                        <button class="profile-btn" onclick="showCustomerLookup()">
+                            👤 Soy Cliente Frecuente
+                        </button>
+                        <button class="profile-btn secondary" onclick="hideProfileSection()">
+                            🆕 Primera Vez Ordenando
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Quick Order Section -->
+            <section class="quick-order-section" id="quick-order-section" style="display: none;">
+                <h2 class="quick-order-title">⚡ Pedidos Rápidos</h2>
+                <div class="quick-order-grid" id="quick-order-grid">
+                    <!-- Quick order templates will be populated by JavaScript -->
+                </div>
+            </section>
+
+            <!-- Order History Section -->
+            <section class="order-history-section" id="order-history-section">
+                <div class="history-header">
+                    <h2 class="history-title">📋 Mis Pedidos Anteriores</h2>
+                    <button class="history-toggle" onclick="toggleOrderHistory()">
+                        👁️ Mostrar/Ocultar
+                    </button>
+                </div>
+                <div class="order-history-list" id="order-history-list">
+                    <!-- Order history will be populated by JavaScript -->
+                </div>
+            </section>
+
+            <!-- Success/Error Messages -->
+            <div id="messages"></div>
+
+            <!-- Today's Menu -->
+            <section class="todays-menu" id="todays-menu-section">
+                <div class="menu-header">
+                    <h2 class="menu-title">🍽️ Menú de Hoy</h2>
+                    <p class="menu-date" id="menu-date"></p>
+                </div>
+
+                <!-- Favorites Section (for returning customers) -->
+                <div class="favorites-section" id="favorites-section" style="display: none;">
+                    <div class="favorites-title">⭐ Tus Favoritos</div>
+                    <div class="favorites-grid" id="favorites-grid">
+                        <!-- Favorite items will be populated by JavaScript -->
+                    </div>
+                </div>
+
+                <div class="daily-specials" id="daily-specials">
+                    <!-- Loading skeletons will be shown first -->
+                    <div class="skeleton-card skeleton" id="loading-skeleton-1">
+                        <div class="skeleton-image skeleton"></div>
+                        <div class="skeleton-title skeleton"></div>
+                        <div class="skeleton-description skeleton"></div>
+                        <div class="skeleton-description skeleton"></div>
+                        <div class="skeleton-price skeleton"></div>
+                        <div class="skeleton-button skeleton"></div>
+                    </div>
+                    <div class="skeleton-card skeleton" id="loading-skeleton-2">
+                        <div class="skeleton-image skeleton"></div>
+                        <div class="skeleton-title skeleton"></div>
+                        <div class="skeleton-description skeleton"></div>
+                        <div class="skeleton-description skeleton"></div>
+                        <div class="skeleton-price skeleton"></div>
+                        <div class="skeleton-button skeleton"></div>
+                    </div>
+                    <div class="skeleton-card skeleton" id="loading-skeleton-3">
+                        <div class="skeleton-image skeleton"></div>
+                        <div class="skeleton-title skeleton"></div>
+                        <div class="skeleton-description skeleton"></div>
+                        <div class="skeleton-description skeleton"></div>
+                        <div class="skeleton-price skeleton"></div>
+                        <div class="skeleton-button skeleton"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Information Section -->
+            <section class="info-section">
+                <h2 class="info-title">¿Cómo Funciona?</h2>
+                <div class="info-grid">
+                    <div class="info-card">
+                        <div class="info-icon">🛒</div>
+                        <h3 class="info-card-title">1. Haz tu Pedido</h3>
+                        <p class="info-card-text">Ordena directamente desde la app con tus datos</p>
+                    </div>
+                    <div class="info-card">
+                        <div class="info-icon">📱</div>
+                        <h3 class="info-card-title">2. Confirmación WhatsApp</h3>
+                        <p class="info-card-text">Te confirmamos disponibilidad y hora por WhatsApp</p>
+                    </div>
+                    <div class="info-card">
+                        <div class="info-icon">🏠</div>
+                        <h3 class="info-card-title">3. Recoge en Casa</h3>
+                        <p class="info-card-text">Ven a recoger tu comida caliente y lista</p>
+                    </div>
+                    <div class="info-card">
+                        <div class="info-icon">🚚</div>
+                        <h3 class="info-card-title">Delivery Opcional</h3>
+                        <p class="info-card-text">Delivery disponible con costo adicional</p>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Photo Gallery Modal -->
+    <div class="photo-gallery-modal" id="photo-gallery-modal">
+        <div class="gallery-content">
+            <button class="gallery-close" onclick="closePhotoGallery()">&times;</button>
+            <img class="gallery-image" id="gallery-image" src="" alt="">
+            <div class="gallery-title" id="gallery-title"></div>
+        </div>
+    </div>
+
+    <!-- Order Modal -->
+    <div class="order-modal" id="order-modal">
+        <div class="order-modal-content">
+            <div class="order-modal-header">
+                <h2 class="order-modal-title">🛒 Hacer Pedido</h2>
+                <button class="close-modal-button" onclick="closeOrderModal()">&times;</button>
+            </div>
+            
+            <form id="order-form">
+                <!-- Customer Lookup Section -->
+                <div class="customer-lookup" id="customer-lookup" style="display: none;">
+                    <div class="lookup-title">🔍 Buscar Mi Información</div>
+                    <div class="lookup-form">
+                        <div class="lookup-input">
+                            <label class="form-label" for="lookup-phone">Tu Teléfono:</label>
+                            <input type="tel" id="lookup-phone" class="form-input" placeholder="809-123-4567">
+                        </div>
+                        <button type="button" class="lookup-btn" onclick="lookupCustomer()">
+                            🔍 Buscar
+                        </button>
+                    </div>
+                    <div id="customer-found" class="customer-found" style="display: none;">
+                        <div class="customer-found-text">¡Hola de nuevo! Hemos llenado tu información.</div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Plato Seleccionado:</label>
+                    <div id="selected-item" style="font-size: var(--elderly-lg); font-weight: bold; color: var(--primary-green); padding: 12px; background: var(--elderly-bg); border-radius: 8px;"></div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Cantidad:</label>
+                    <div class="quantity-selector">
+                        <button type="button" class="quantity-btn" onclick="changeQuantity(-1)">−</button>
+                        <div class="quantity-display" id="quantity-display">1</div>
+                        <button type="button" class="quantity-btn" onclick="changeQuantity(1)">+</button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="customer-name">Tu Nombre: *</label>
+                    <div class="form-input-group">
+                        <input type="text" id="customer-name" class="form-input has-icon" placeholder="Escribe tu nombre completo" required>
+                        <span class="input-icon">👤</span>
+                    </div>
+                    <div class="input-validation" id="name-validation"></div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="customer-phone">Tu Teléfono (WhatsApp): *</label>
+                    <div class="form-input-group">
+                        <input type="tel" id="customer-phone" class="form-input has-icon phone-formatter" placeholder="809-123-4567" required>
+                        <span class="input-icon">📱</span>
+                    </div>
+                    <div class="input-validation" id="phone-validation"></div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Tipo de Servicio:</label>
+                    <div class="form-input-group">
+                        <select id="service-type" class="form-input has-icon" onchange="toggleDeliveryAddress()">
+                            <option value="pickup">🏠 Recoger en el Local</option>
+                            <option value="delivery">🚚 Delivery (Costo Adicional)</option>
+                        </select>
+                        <span class="input-icon">🚛</span>
+                    </div>
+                </div>
+
+                <div class="form-group" id="delivery-address-group" style="display: none;">
+                    <label class="form-label" for="delivery-address">Dirección de Delivery:</label>
+                    <div class="autocomplete-container">
+                        <div class="form-input-group">
+                            <textarea id="delivery-address" class="form-textarea has-icon" placeholder="Escribe tu dirección completa para delivery"></textarea>
+                            <span class="input-icon">📍</span>
+                        </div>
+                        <div class="autocomplete-suggestions" id="address-suggestions">
+                            <!-- Address suggestions will be populated by JavaScript -->
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="special-instructions">Instrucciones Especiales:</label>
+                    <div class="form-input-group">
+                        <textarea id="special-instructions" class="form-textarea has-icon" placeholder="¿Alguna petición especial? (Opcional)"></textarea>
+                        <span class="input-icon">📝</span>
+                    </div>
+                </div>
+
+                <!-- Save Profile Prompt (for new customers) -->
+                <div class="save-profile-prompt" id="save-profile-prompt" style="display: none;">
+                    <div class="save-prompt-title">💾 ¿Guardar tu información?</div>
+                    <div class="save-prompt-text">
+                        ¿Te gustaría que guardemos tu información para hacer pedidos más rápidos la próxima vez?
+                    </div>
+                    <div class="save-prompt-buttons">
+                        <button type="button" class="profile-btn" onclick="setSaveProfile(true)">
+                            ✅ Sí, Guardar
+                        </button>
+                        <button type="button" class="profile-btn secondary" onclick="setSaveProfile(false)">
+                            ❌ No, Gracias
+                        </button>
+                    </div>
+                </div>
+
+                <div class="order-summary">
+                    <div class="summary-item">
+                        <span>Subtotal:</span>
+                        <span id="subtotal-amount">RD$ 0</span>
+                    </div>
+                    <div class="summary-item" id="delivery-fee-row" style="display: none;">
+                        <span>Costo de Delivery:</span>
+                        <span>A consultar</span>
+                    </div>
+                    <div class="summary-total">
+                        <span>Total:</span>
+                        <span id="total-amount">RD$ 0</span>
+                    </div>
+                </div>
+
+                <button type="submit" class="submit-order-btn">
+                    📤 Enviar Pedido para Confirmación
+                </button>
+            </form>
+        </div>
+    </div>
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <h3 class="footer-title">Comida Casera El Seibo</h3>
+                <div class="contact-info">
+                    <div class="contact-item">
+                        📍 <span>El Seibo, República Dominicana</span>
+                    </div>
+                    <div class="contact-item">
+                        🏠 <span>Servicio de Recogida - Consulta dirección por WhatsApp</span>
+                    </div>
+                    <div class="contact-item">
+                        📞 <span>+1 (809) 456-7890</span>
+                    </div>
+                    <div class="contact-item">
+                        📱 <span>WhatsApp: +1 (809) 456-7890</span>
+                    </div>
+                    <div class="contact-item">
+                        🕒 <span>Lunes a Domingo: 9:00 AM - 7:00 PM</span>
+                    </div>
+                    <div class="contact-item">
+                        🚚 <span>Delivery especial disponible - Consultar costo</span>
+                    </div>
+                </div>
+                <p>&copy; 2024 Comida Casera El Seibo. Hecho con ❤️ en República Dominicana</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Sample daily specials data - easily replaceable with actual photos
+        const todaysSpecials = [
+            {
+                id: 1,
+                name: "Pollo Guisado con Vegetales",
+                description: "Pollo tierno guisado con zanahoria, papa, y vegetales frescos. Sazonado con sofrito criollo y hierbas naturales.",
+                price: 350,
+                image: null, // Will be replaced with actual photo
+                emoji: "🍗",
+                availability: "available", // available, limited, sold-out
+                availablePortions: 15
+            },
+            {
+                id: 2,
+                name: "Carne Guisada con Yuca",
+                description: "Carne de res tierna guisada con yuca fresca, cebolla y ajo. Acompañada de su salsa especial casera.",
+                price: 380,
+                image: null, // Will be replaced with actual photo
+                emoji: "🥩",
+                availability: "available",
+                availablePortions: 12
+            },
+            {
+                id: 3,
+                name: "Arroz con Habichuelas y Ensalada",
+                description: "Arroz blanco con habichuelas rojas cremosas y ensalada fresca. Perfecta combinación dominicana.",
+                price: 220,
+                image: null, // Will be replaced with actual photo
+                emoji: "🍚",
+                availability: "limited",
+                availablePortions: 5
+            },
+            {
+                id: 4,
+                name: "Pescado Frito con Tostones",
+                description: "Pescado fresco frito doradito con tostones crujientes y ensalada de repollo. ¡Una delicia del mar!",
+                price: 420,
+                image: null, // Will be replaced with actual photo
+                emoji: "🐟",
+                availability: "sold-out",
+                availablePortions: 0
+            }
+        ];
+
+        // Date formatting
+        function formatDate(date) {
+            const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+            const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 
+                          'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+            
+            const dayName = days[date.getDay()];
+            const day = date.getDate();
+            const month = months[date.getMonth()];
+            const year = date.getFullYear();
+            
+            return `${dayName}, ${day} de ${month} ${year}`;
+        }
+
+        // Initialize page
+        function initializePage() {
+            const today = new Date();
+            const formattedDate = formatDate(today);
+            
+            document.getElementById('current-date').textContent = formattedDate;
+            document.getElementById('menu-date').textContent = formattedDate;
+            
+            renderDailySpecials();
+        }
+
+        // Render daily specials
+        function renderDailySpecials() {
+            const container = document.getElementById('daily-specials');
+            container.innerHTML = '';
+
+            todaysSpecials.forEach(special => {
+                const specialCard = createSpecialCard(special);
+                container.appendChild(specialCard);
+            });
+        }
+
+        // Create special card
+        function createSpecialCard(special) {
+            const card = document.createElement('div');
+            card.className = 'special-card';
+            
+            const availabilityInfo = getAvailabilityInfo(special.availability, special.availablePortions);
+            const isAvailable = special.availability === 'available' || special.availability === 'limited';
+            
+            card.innerHTML = `
+                <div class="special-badge">Especial del Día</div>
+                
+                <div class="special-image">
+                    ${special.image ? 
+                        `<img src="${special.image}" alt="${special.name}" loading="lazy">` : 
+                        special.emoji
+                    }
+                </div>
+                
+                <h3 class="special-title">${special.name}</h3>
+                
+                <p class="special-description">${special.description}</p>
+                
+                <div class="availability-status ${special.availability}">
+                    ${availabilityInfo.icon} ${availabilityInfo.text}
+                </div>
+                
+                <div class="special-price">RD$ ${special.price}</div>
+                
+                <button class="order-button" 
+                        ${!isAvailable ? 'disabled' : ''} 
+                        onclick="openOrderModal('${special.name}', ${special.price}, ${special.id}, ${isAvailable})">
+                    🛒 ${isAvailable ? 'Hacer Pedido' : 'Agotado'}
+                </button>
+            `;
+            
+            return card;
+        }
+
+        // Get availability information
+        function getAvailabilityInfo(availability, portions) {
+            switch(availability) {
+                case 'available':
+                    return {
+                        icon: '✅',
+                        text: `Disponible (${portions} porciones)`
+                    };
+                case 'limited':
+                    return {
+                        icon: '⚠️',
+                        text: `¡Pocas disponibles! (${portions} porciones)`
+                    };
+                case 'sold-out':
+                    return {
+                        icon: '❌',
+                        text: 'Agotado por hoy'
+                    };
+                default:
+                    return {
+                        icon: '❓',
+                        text: 'Consultar disponibilidad'
+                    };
+            }
+        }
+
+        // Order management variables
+        let currentOrder = {
+            itemId: null,
+            itemName: '',
+            itemPrice: 0,
+            quantity: 1
+        };
+
+        // Initialize page
+        function initializePage() {
+            const today = new Date();
+            const formattedDate = formatDate(today);
+            
+            document.getElementById('current-date').textContent = formattedDate;
+            document.getElementById('menu-date').textContent = formattedDate;
+            
+            renderDailySpecials();
+            setupOrderForm();
+        }
+
+        // Setup order form
+        function setupOrderForm() {
+            const orderForm = document.getElementById('order-form');
+            orderForm.addEventListener('submit', handleOrderSubmission);
+        }
+
+        // Open order modal
+        function openOrderModal(itemName, itemPrice, itemId, isAvailable) {
+            if (!isAvailable) {
+                showMessage('Este plato ya no está disponible. Por favor elige otro.', 'error');
+                return;
+            }
+
+            currentOrder = {
+                itemId: itemId,
+                itemName: itemName,
+                itemPrice: itemPrice,
+                quantity: 1
+            };
+
+            document.getElementById('selected-item').textContent = `${itemName} - RD$ ${itemPrice}`;
+            document.getElementById('quantity-display').textContent = '1';
+            updateOrderSummary();
+            
+            document.getElementById('order-modal').classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        // Close order modal
+        function closeOrderModal() {
+            document.getElementById('order-modal').classList.remove('active');
+            document.body.style.overflow = '';
+            
+            // Reset form
+            document.getElementById('order-form').reset();
+            document.getElementById('quantity-display').textContent = '1';
+            currentOrder.quantity = 1;
+            toggleDeliveryAddress();
+        }
+
+        // Change quantity
+        function changeQuantity(change) {
+            const newQuantity = currentOrder.quantity + change;
+            if (newQuantity >= 1 && newQuantity <= 10) {
+                currentOrder.quantity = newQuantity;
+                document.getElementById('quantity-display').textContent = newQuantity;
+                updateOrderSummary();
+            }
+        }
+
+        // Toggle delivery address field
+        function toggleDeliveryAddress() {
+            const serviceType = document.getElementById('service-type').value;
+            const deliveryGroup = document.getElementById('delivery-address-group');
+            const deliveryFeeRow = document.getElementById('delivery-fee-row');
+            
+            if (serviceType === 'delivery') {
+                deliveryGroup.style.display = 'block';
+                deliveryFeeRow.style.display = 'flex';
+                document.getElementById('delivery-address').required = true;
+            } else {
+                deliveryGroup.style.display = 'none';
+                deliveryFeeRow.style.display = 'none';
+                document.getElementById('delivery-address').required = false;
+                document.getElementById('delivery-address').value = '';
+            }
+            updateOrderSummary();
+        }
+
+        // Update order summary
+        function updateOrderSummary() {
+            const subtotal = currentOrder.itemPrice * currentOrder.quantity;
+            document.getElementById('subtotal-amount').textContent = `RD$ ${subtotal}`;
+            
+            const serviceType = document.getElementById('service-type').value;
+            if (serviceType === 'delivery') {
+                document.getElementById('total-amount').textContent = `RD$ ${subtotal} + Delivery`;
+            } else {
+                document.getElementById('total-amount').textContent = `RD$ ${subtotal}`;
+            }
+        }
+
+        // Handle order submission
+        async function handleOrderSubmission(event) {
+            event.preventDefault();
+            
+            const formData = new FormData(event.target);
+            const orderData = {
+                itemId: currentOrder.itemId,
+                itemName: currentOrder.itemName,
+                itemPrice: currentOrder.itemPrice,
+                quantity: currentOrder.quantity,
+                customerName: document.getElementById('customer-name').value,
+                customerPhone: document.getElementById('customer-phone').value,
+                serviceType: document.getElementById('service-type').value,
+                deliveryAddress: document.getElementById('delivery-address').value,
+                specialInstructions: document.getElementById('special-instructions').value,
+                total: currentOrder.itemPrice * currentOrder.quantity,
+                timestamp: new Date().toISOString(),
+                status: 'pending'
+            };
+
+            try {
+                // Disable submit button
+                const submitBtn = document.querySelector('.submit-order-btn');
+                submitBtn.disabled = true;
+                submitBtn.textContent = '📤 Enviando Pedido...';
+
+                // Simulate API call (replace with actual API endpoint)
+                const response = await submitOrder(orderData);
+                
+                if (response.success) {
+                    showMessage('¡Pedido enviado exitosamente! Recibirás confirmación por WhatsApp en unos minutos.', 'success');
+                    closeOrderModal();
+                    
+                    // Show order status
+                    showOrderStatus(response.orderId, 'pending');
+                } else {
+                    throw new Error(response.message || 'Error al enviar el pedido');
+                }
+                
+            } catch (error) {
+                console.error('Error submitting order:', error);
+                showMessage('Error al enviar el pedido. Por favor intenta de nuevo o contacta por WhatsApp.', 'error');
+            } finally {
+                // Re-enable submit button
+                const submitBtn = document.querySelector('.submit-order-btn');
+                submitBtn.disabled = false;
+                submitBtn.textContent = '📤 Enviar Pedido para Confirmación';
+            }
+        }
+
+        // Submit order (replace with actual API call)
+        async function submitOrder(orderData) {
+            // Simulate API call delay
+            await new Promise(resolve => setTimeout(resolve, 1500));
+            
+            // Generate a mock order ID
+            const orderId = 'ORD' + Date.now().toString().slice(-6);
+            
+            // Log order data (for development)
+            console.log('Order submitted:', orderData);
+            
+            // In a real implementation, this would call your API endpoint
+            // Example: 
+            // const response = await fetch('/api/orders', {
+            //     method: 'POST',
+            //     headers: { 'Content-Type': 'application/json' },
+            //     body: JSON.stringify(orderData)
+            // });
+            // return await response.json();
+            
+            // Simulate successful submission
+            return {
+                success: true,
+                orderId: orderId,
+                message: 'Pedido recibido exitosamente'
+            };
+        }
+
+        // Show order status
+        function showOrderStatus(orderId, status) {
+            const statusMessages = {
+                pending: `🕐 Pedido #${orderId} enviado - Esperando confirmación`,
+                confirmed: `✅ Pedido #${orderId} confirmado - Te contactaremos pronto`,
+                denied: `❌ Pedido #${orderId} no disponible - Intenta con otro plato`
+            };
+
+            const statusDiv = document.createElement('div');
+            statusDiv.className = `order-status ${status}`;
+            statusDiv.textContent = statusMessages[status];
+            
+            const messagesContainer = document.getElementById('messages');
+            messagesContainer.appendChild(statusDiv);
+            
+            // Auto-remove after 10 seconds
+            setTimeout(() => {
+                if (statusDiv.parentNode) {
+                    statusDiv.parentNode.removeChild(statusDiv);
+                }
+            }, 10000);
+        }
+
+        // Order item via WhatsApp (fallback method)
+        function orderViaWhatsApp(itemName, price) {
+            const whatsappNumber = '18094567890'; // Replace with actual WhatsApp number
+            const message = `¡Hola! Me gustaría ordenar para RECOGER:
+
+🍽️ ${itemName}
+💰 Precio: RD$ ${price}
+
+Por favor confirmen:
+- Disponibilidad
+- Hora de recogida
+- Dirección exacta para recoger
+
+(Si necesito delivery, por favor consulten costo adicional)
+
+¡Gracias!`;
+
+            const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
+            window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+        }
+
+        // Show message
+        function showMessage(text, type = 'success') {
+            const messagesContainer = document.getElementById('messages
